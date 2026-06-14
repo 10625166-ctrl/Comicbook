@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +14,19 @@ st.set_page_config(
 if "page" not in st.session_state:
     st.session_state.page = "intro"
 
-DATA_PATH = Path(__file__).resolve().parent.parent / "comic_books_10000_dataset.csv"
+# Try common dataset locations for GitHub/Streamlit deployment
+DATASET_FILENAME = "comic_books_10000_dataset.csv"
+DATA_PATH_CANDIDATES = []
+if os.getenv("COMIC_DATASET_PATH"):
+    DATA_PATH_CANDIDATES.append(Path(os.getenv("COMIC_DATASET_PATH")))
+
+DATA_PATH_CANDIDATES.extend([
+    Path(__file__).resolve().parent / DATASET_FILENAME,
+    Path(__file__).resolve().parent.parent / DATASET_FILENAME,
+    Path.cwd() / DATASET_FILENAME,
+])
+
+DATA_PATH = next((path for path in DATA_PATH_CANDIDATES if path.exists()), None)
 
 # CSS for background images
 intro_bg = """
@@ -53,10 +66,15 @@ main_bg = """
 </style>
 """
 
+# Đổi tên hàm thành read_comic_dataset để làm mới cache trên Streamlit Cloud
 @st.cache_data
-def load_comics(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        raise FileNotFoundError(f"Dataset not found at {path}")
+def read_comic_dataset(path: Path) -> pd.DataFrame:
+    if path is None or not path.exists():
+        looked = "\n".join(str(p) for p in DATA_PATH_CANDIDATES)
+        raise FileNotFoundError(
+            f"Dataset not found. Searched for {DATASET_FILENAME} in:\n{looked}\n"
+            "Make sure the file is included in your repo and the app root, or set COMIC_DATASET_PATH."
+        )
     df = pd.read_csv(path)
     df = df.fillna("Unknown")
     return df
@@ -151,7 +169,11 @@ def show_dashboard_page(df: pd.DataFrame):
     st.subheader("📊 Headline Summary")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Comics", len(filtered_df), f"/ {len(df)}")
-    col2.metric("Avg Rating", f"{filtered_df['Rating (out of 10)'].mean():.2f}")
+    
+    # Check if filtered_df is empty to avoid Mean of empty series warning/error
+    avg_rating = filtered_df['Rating (out of 10)'].mean() if not filtered_df.empty else 0.0
+    col2.metric("Avg Rating", f"{avg_rating:.2f}")
+    
     col3.metric("Top Genre", get_top_value(filtered_df["Genre"]))
     col4.metric("Top Country", get_top_value(filtered_df["Country of Origin"]))
 
@@ -220,9 +242,9 @@ def show_dashboard_page(df: pd.DataFrame):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# Load data and show appropriate page
+# Load data using the newly-named cached function
 try:
-    df = load_comics(DATA_PATH)
+    df = read_comic_dataset(DATA_PATH)
     if st.session_state.page == "intro":
         show_intro_page()
     else:
