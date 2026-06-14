@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
-import plotly.express as px  # Import thêm Plotly để vẽ Pie chart
+import plotly.express as px  # Sử dụng Plotly cho cả Pie chart và Line graph
 
 st.set_page_config(
     page_title="Comic Book Insights",
@@ -202,8 +202,37 @@ def show_dashboard_page(df: pd.DataFrame):
             st.markdown("**Comics by Release Year**")
             year_counts = filtered_df["Release Year"].value_counts().sort_index()
             if not year_counts.empty:
-                # Đã chuyển đổi từ st.bar_chart sang st.line_chart ở đây
-                st.line_chart(year_counts)
+                # Chuẩn bị dữ liệu cho Plotly Line chart
+                year_df = year_counts.reset_index()
+                year_df.columns = ['Release Year', 'Comics Count']
+                
+                # Ép kiểu cột năm sang dạng chuỗi (String/Text) để loại bỏ hoàn toàn dấu phẩy tách nghìn
+                year_df['Release Year'] = year_df['Release Year'].astype(str)
+                
+                # Tạo biểu đồ đường bằng Plotly và kích hoạt 'markers=True' để luôn có chấm tròn rõ ràng
+                fig_line = px.line(
+                    year_df, 
+                    x='Release Year', 
+                    y='Comics Count',
+                    markers=True,  # Tạo dấu chấm tròn tại các điểm mốc (kể cả khi chỉ chọn 1 năm)
+                    color_discrete_sequence=['#1f77b4']
+                )
+                
+                # Tinh chỉnh kích thước chấm tròn lớn lên nếu dữ liệu chỉ có một năm đơn độc
+                if len(year_df) == 1:
+                    fig_line.update_traces(marker=dict(size=12, color='red')) # Chấm đỏ lớn khi chọn đơn năm
+                else:
+                    fig_line.update_traces(marker=dict(size=6))
+                
+                fig_line.update_layout(
+                    margin=dict(l=20, r=20, t=10, b=10),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    xaxis=dict(type='category', title='Release Year'), # Khai báo rõ kiểu category trục X
+                    yaxis=dict(title='Number of Comics')
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
+                
                 st.markdown("""
                 *This chart shows the distribution of comics across different decades. The data reveals publication trends and 
                 the evolution of the comic book industry over time.*
@@ -222,11 +251,9 @@ def show_dashboard_page(df: pd.DataFrame):
             st.markdown("**Country of Origin Distribution**")
             country_counts = filtered_df["Country of Origin"].value_counts().head(10)
             if not country_counts.empty:
-                # Chuyển dữ liệu Series thành DataFrame để truyền vào Plotly
                 country_df = country_counts.reset_index()
                 country_df.columns = ['Country', 'Count']
                 
-                # Tạo biểu đồ tròn (Pie chart) bằng Plotly Express
                 fig = px.pie(
                     country_df, 
                     values='Count', 
@@ -234,7 +261,6 @@ def show_dashboard_page(df: pd.DataFrame):
                     hole=0.1, 
                     color_discrete_sequence=px.colors.sequential.RdBu
                 )
-                # Tinh chỉnh layout hiển thị gọn gàng, nền trong suốt hài hòa với CSS của bạn
                 fig.update_layout(
                     margin=dict(l=20, r=20, t=20, b=20),
                     paper_bgcolor='rgba(0,0,0,0)',
@@ -269,7 +295,7 @@ try:
     if st.session_state.page == "intro":
         show_intro_page()
     else:
-        st.session_state.page = "dashboard" # Đảm bảo bỏ qua bước intro lỗi nếu đang reload
+        st.session_state.page = "dashboard"
         show_dashboard_page(df)
 except Exception as error:
     st.error(f"Error loading dataset: {error}")
