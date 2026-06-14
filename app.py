@@ -66,7 +66,6 @@ main_bg = """
 </style>
 """
 
-# Đổi tên hàm thành read_comic_dataset để làm mới cache trên Streamlit Cloud
 @st.cache_data
 def read_comic_dataset(path: Path) -> pd.DataFrame:
     if path is None or not path.exists():
@@ -167,7 +166,8 @@ def show_dashboard_page(df: pd.DataFrame):
     )
 
     st.subheader("📊 Headline Summary")
-    col1, col2, col3, col4 = st.columns(4)
+    # Thay đổi tỷ lệ [1, 1, 1.8, 1.2] để mở rộng không gian cho Top Genre hiển thị trọn chữ
+    col1, col2, col3, col4 = st.columns([1, 1, 1.8, 1.2])
     col1.metric("Total Comics", len(filtered_df), f"/ {len(df)}")
     
     # Check if filtered_df is empty to avoid Mean of empty series warning/error
@@ -242,7 +242,7 @@ def show_dashboard_page(df: pd.DataFrame):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-# Load data using the newly-named cached function
+# Load data using the cached function
 try:
     df = read_comic_dataset(DATA_PATH)
     if st.session_state.page == "intro":
