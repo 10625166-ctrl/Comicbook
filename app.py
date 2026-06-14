@@ -202,7 +202,8 @@ def show_dashboard_page(df: pd.DataFrame):
             st.markdown("**Comics by Release Year**")
             year_counts = filtered_df["Release Year"].value_counts().sort_index()
             if not year_counts.empty:
-                st.bar_chart(year_counts)
+                # Đã chuyển đổi từ st.bar_chart sang st.line_chart ở đây
+                st.line_chart(year_counts)
                 st.markdown("""
                 *This chart shows the distribution of comics across different decades. The data reveals publication trends and 
                 the evolution of the comic book industry over time.*
@@ -230,7 +231,7 @@ def show_dashboard_page(df: pd.DataFrame):
                     country_df, 
                     values='Count', 
                     names='Country',
-                    hole=0.1, # Đổi thành 0.4 nếu bạn muốn tạo biểu đồ dạng bánh Donut rỗng giữa
+                    hole=0.1, 
                     color_discrete_sequence=px.colors.sequential.RdBu
                 )
                 # Tinh chỉnh layout hiển thị gọn gàng, nền trong suốt hài hòa với CSS của bạn
