@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px  # Import thêm Plotly để vẽ Pie chart
 
 st.set_page_config(
     page_title="Comic Book Insights",
@@ -166,7 +167,6 @@ def show_dashboard_page(df: pd.DataFrame):
     )
 
     st.subheader("📊 Headline Summary")
-    # Thay đổi tỷ lệ [1, 1, 1.8, 1.2] để mở rộng không gian cho Top Genre hiển thị trọn chữ
     col1, col2, col3, col4 = st.columns([1, 1, 1.8, 1.2])
     col1.metric("Total Comics", len(filtered_df), f"/ {len(df)}")
     
@@ -221,7 +221,27 @@ def show_dashboard_page(df: pd.DataFrame):
             st.markdown("**Country of Origin Distribution**")
             country_counts = filtered_df["Country of Origin"].value_counts().head(10)
             if not country_counts.empty:
-                st.bar_chart(country_counts)
+                # Chuyển dữ liệu Series thành DataFrame để truyền vào Plotly
+                country_df = country_counts.reset_index()
+                country_df.columns = ['Country', 'Count']
+                
+                # Tạo biểu đồ tròn (Pie chart) bằng Plotly Express
+                fig = px.pie(
+                    country_df, 
+                    values='Count', 
+                    names='Country',
+                    hole=0.1, # Đổi thành 0.4 nếu bạn muốn tạo biểu đồ dạng bánh Donut rỗng giữa
+                    color_discrete_sequence=px.colors.sequential.RdBu
+                )
+                # Tinh chỉnh layout hiển thị gọn gàng, nền trong suốt hài hòa với CSS của bạn
+                fig.update_layout(
+                    margin=dict(l=20, r=20, t=20, b=20),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    showlegend=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
                 st.markdown("""
                 *Comics originate from many countries worldwide. Japan dominates with manga, 
                 while the USA produces major mainstream comics. Other countries contribute unique cultural perspectives.*
@@ -248,6 +268,7 @@ try:
     if st.session_state.page == "intro":
         show_intro_page()
     else:
+        st.session_state.page = "dashboard" # Đảm bảo bỏ qua bước intro lỗi nếu đang reload
         show_dashboard_page(df)
 except Exception as error:
     st.error(f"Error loading dataset: {error}")
