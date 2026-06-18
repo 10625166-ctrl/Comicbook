@@ -78,11 +78,9 @@ def read_comic_dataset(path: Path) -> pd.DataFrame:
     df = df.fillna("Unknown")
     
     if "Country of Origin" in df.columns:
-        # Chuẩn hóa khoảng trắng
         df["Country of Origin"] = df["Country of Origin"].astype(str).str.strip()
         
-        # GIỚI HẠN CỨNG CHỈ ĐỂ LẠI ĐÚNG 8 QUỐC GIA THEO YÊU CẦU
-        # (Tự động loại bỏ hoàn toàn South Korea / Japan, South Korea / USA, Others và các nước Châu Âu nhỏ)
+        # Giới hạn cứng duy nhất 8 quốc gia cốt lõi sạch theo yêu cầu của bạn
         target_countries = ["Japan", "USA", "South Korea", "China", "UK", "Canada", "New Zealand", "Australia"]
         df = df[df["Country of Origin"].isin(target_countries)]
 
@@ -120,8 +118,6 @@ def show_dashboard_page(df: pd.DataFrame):
         st.markdown("<div style='margin:6px 0 12px 0;'><h2 style='font-size:22px; font-weight:800; text-transform:uppercase; margin:0;'>📂 CATEGORIES</h2></div>", unsafe_allow_html=True)
         
         available_years = sorted([int(x) for x in df["Release Year"].unique() if str(x).isdigit()])
-        
-        # Danh sách quốc gia chỉ gồm đúng 8 nước mục tiêu, sắp xếp theo số lượng từ cao đến thấp
         allowed_countries = df["Country of Origin"].value_counts().index.tolist()
         
         selected_years = st.multiselect("Release Year(s)", options=available_years, default=available_years, key=f"years_{st.session_state.reset_count}")
@@ -140,7 +136,7 @@ def show_dashboard_page(df: pd.DataFrame):
             st.session_state.reset_count += 1
             st.rerun()
 
-    # Lọc dữ liệu dựa trên Categories đầu vào
+    # Lọc dữ liệu dựa trên cấu hình bộ lọc sidebar
     filtered_df = df.copy()
     if selected_years:
         filtered_df = filtered_df[filtered_df["Release Year"].isin(selected_years)]
@@ -151,8 +147,16 @@ def show_dashboard_page(df: pd.DataFrame):
     st.title("Comic Book Insights Dashboard")
     st.markdown("<div class='main-content'>", unsafe_allow_html=True)
 
-    # --- MỤC KEY FINDINGS: ĐOẠN VĂN MIÊU TẢ DATASET ---
-    st.subheader("📰 Key Findings & Dataset Overview")
+    # --- ĐỔI MỚI HỆ THỐNG TABS: ĐƯA HOME LÊN ĐẦU ---
+    tab_home, tab_year, tab_country, tab_genre, tab_data = st.tabs([
+        "🏠 Home",
+        "📅 Comics by Release Year", 
+        "🌍 Country of Origin Distribution", 
+        "🧬 Top Genres", 
+        "📋 Data Frame"
+    ])
+
+    # Tính toán các biến số liệu thống kê chung
     total_records = len(filtered_df)
     avg_rating = filtered_df['Rating (out of 10)'].mean() if not filtered_df.empty else 0.0
     most_prolific_writer = get_top_value(filtered_df["Writer"])
@@ -160,29 +164,30 @@ def show_dashboard_page(df: pd.DataFrame):
     avg_pages = int(filtered_df["Page Count"].mean()) if not filtered_df.empty else 0
     unique_langs = filtered_df['Language'].nunique()
 
-    st.write(
-        f"This comprehensive dataset encompasses a rigorous compilation of comic books, providing an analytical window into global sequential art trends. "
-        f"Currently, under the active filter configuration, the dataset contains **{total_records:,} distinct titles** spanning **{filtered_df['Release Year'].nunique()} individual publication years**. "
-        f"The registered entries exhibit a commendable critical standard with an **average user rating of {avg_rating:.2f} out of 10**. "
-        f"Structurally, the marketplace demonstrates a heavy reliance on the **{dominant_format}** format, while the technical composition shows an average volume size of **{avg_pages} pages** per book. "
-        f"Linguistically and creatively, production exhibits vast diversity across **{unique_langs} distinct languages**, driven heavily by prolific creators such as **{most_prolific_writer}**, who emerges as a highly prominent figurehead within this cultural dataset."
-    )
-
-    st.markdown("---")
-    st.subheader("📈 Visual Analysis & Statistical Breakdowns")
-
-    # --- TÁCH BIỆT CÁC CHART THÀNH CÁC TABS RIÊNG ---
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📅 Comics by Release Year", 
-        "🌍 Country of Origin Distribution", 
-        "🧬 Top Genres", 
-        "📋 Data Frame"
-    ])
+    # --- TAB 1: HOME (KEY FINDINGS & MINH HỌA) ---
+    with tab_home:
+        col_text, col_img = st.columns([1.2, 1])
+        with col_text:
+            st.subheader("📰 Key Findings & Dataset Overview")
+            st.write(
+                f"This comprehensive dataset encompasses a rigorous compilation of comic books, providing an analytical window into global sequential art trends. "
+                f"Currently, under the active filter configuration, the dataset contains **{total_records:,} distinct titles** spanning **{filtered_df['Release Year'].nunique()} individual publication years**. "
+                f"The registered entries exhibit a commendable critical standard with an **average user rating of {avg_rating:.2f} out of 10**. "
+                f"Structurally, the marketplace demonstrates a heavy reliance on the **{dominant_format}** format, while the technical composition shows an average volume size of **{avg_pages} pages** per book. "
+                f"Linguistically and creatively, production exhibits vast diversity across **{unique_langs} distinct languages**, driven heavily by prolific creators such as **{most_prolific_writer}**, who emerges as a highly prominent figurehead within this cultural dataset."
+            )
+        with col_img:
+            # Chèn hình ảnh minh họa giá sách truyện tranh sang trọng bên cạnh đoạn văn để cân bằng bố cục trực quan
+            st.image(
+                "https://images.unsplash.com/photo-1604307417808-af0bcb8a90f5?w=600", 
+                caption="Comic Book Archives & Global Trends", 
+                use_container_width=True
+            )
 
     if not filtered_df.empty:
         
-        # --- TAB 1: COMICS BY RELEASE YEAR ---
-        with tab1:
+        # --- TAB 2: COMICS BY RELEASE YEAR (CHỈNH TRỤC X NGHIÊNG 45°) ---
+        with tab_year:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
                 year_counts = filtered_df["Release Year"].value_counts().sort_index().reset_index()
@@ -198,7 +203,12 @@ def show_dashboard_page(df: pd.DataFrame):
                     marker=dict(size=12 if is_single_year else 6, color='red' if is_single_year else '#1f77b4'),
                     line=dict(color='#1f77b4', width=2.5)
                 )
-                fig_line.update_layout(xaxis=dict(type='category'), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                # CHỈNH GÓC NGHIÊNG -45 ĐỘ CHO NHÃN NĂM (DỄ ĐỌC, KHÔNG BỊ CHỒNG CHỮ)
+                fig_line.update_layout(
+                    xaxis=dict(type='category', tickangle=-45), 
+                    plot_bgcolor='rgba(0,0,0,0)', 
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
                 st.plotly_chart(fig_line, use_container_width=True)
             
             with col_desc:
@@ -211,8 +221,8 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("This visualization maps out the democratization and digitization of media production, illustrating how comic culture transformed into a dominant modern entertainment asset class.")
 
-        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION (ĐỒNG BỘ TUYỆT ĐỐI - KHÔNG OTHERS) ---
-        with tab2:
+        # --- TAB 3: COUNTRY OF ORIGIN DISTRIBUTION ---
+        with tab_country:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
                 country_counts = filtered_df["Country of Origin"].value_counts().reset_index()
@@ -220,20 +230,19 @@ def show_dashboard_page(df: pd.DataFrame):
                 
                 fig_pie = px.pie(
                     country_counts, values='Count', names='Country',
-                    title="Geographical Market Share Breakdown (Clean Core 8 Countries)",
+                    title="Geographical Market Share Breakdown (Core 8 Countries)",
                     color_discrete_sequence=px.colors.sequential.RdBu
                 )
-                # ĐẢM BẢO HIỂN THỊ ĐƯỜNG CHỈ NGOÀI ĐỒNG ĐỀU CHO CẢ 8 NƯỚC
                 fig_pie.update_traces(
                     textposition='outside', 
-                    textinfo='label+percent', # Cấu trúc hiển thị: [Tên Nước] [Số %]
+                    textinfo='label+percent',
                     automargin=True
                 )
                 fig_pie.update_layout(
                     plot_bgcolor='rgba(0,0,0,0)', 
                     paper_bgcolor='rgba(0,0,0,0)', 
                     showlegend=False,
-                    margin=dict(t=80, b=80, l=140, r=140), # Tạo không gian rộng rãi để các thanh chỉ và chữ phân bổ đẹp, không đè nhau
+                    margin=dict(t=80, b=80, l=140, r=140),
                     height=550
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -245,13 +254,13 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown(
                     f"* **Market Superpowers:** The global distribution is heavily dominated by **{top_1}** and **{top_2}**, commanding a substantial majority of the volume share.\n"
                     f"* **Volume Disparity:** A dramatic drop-off exists between the two market leaders and the remaining regional publishers.\n"
-                    f"* **Regional Diversity:** European and alternative Asian publications account for minor, highly fragmented fractions of global market integration."
+                    f"* **Regional Diversity:** Regional markets like China, UK, and Australia account for minor fractions of global distribution."
                 )
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("It mathematically uncovers the intense soft-power consolidation in global storytelling industries, tracking how two primary creative methods dictate reading habits worldwide.")
 
-        # --- TAB 3: TOP GENRES ---
-        with tab3:
+        # --- TAB 4: TOP GENRES ---
+        with tab_genre:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
                 genre_counts = filtered_df["Genre"].value_counts().head(10).reset_index()
@@ -276,8 +285,8 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("This chart serves as metric proof of global escape dynamics, demonstrating how high-stakes hero arcs and fantasy frameworks serve as the primary economic pillars of the comic world.")
 
-        # --- TAB 4: DATA FRAME ---
-        with tab4:
+        # --- TAB 5: DATA FRAME ---
+        with tab_data:
             st.markdown("### 📋 Filtered Dataset Records")
             top_comics = filtered_df.sort_values("Rating (out of 10)", ascending=False).head(20)
             st.dataframe(
