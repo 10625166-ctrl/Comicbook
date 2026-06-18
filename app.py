@@ -77,9 +77,15 @@ def read_comic_dataset(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     df = df.fillna("Unknown")
     
-    # SỬA LỖI TRÙNG LẶP: Loại bỏ khoảng trắng thừa ở đầu/cuối của text để gom nhóm chính xác
+    # Chuẩn hóa văn bản loại bỏ khoảng trắng thừa
     if "Country of Origin" in df.columns:
         df["Country of Origin"] = df["Country of Origin"].astype(str).str.strip()
+        
+        # LOẠI BỎ CÁC GIÁ TRỊ RÁC CHỨA DẤU GẠCH CHÉO (Ví dụ: South Korea / Japan, South Korea / USA)
+        df = df[~df["Country of Origin"].str.contains(r'/', na=False)]
+        # Loại bỏ các giá trị Unknown hoặc rác không mong muốn khác khỏi danh mục chính nếu có
+        df = df[df["Country of Origin"] != "Unknown"]
+
     if "Genre" in df.columns:
         df["Genre"] = df["Genre"].astype(str).str.strip()
         
@@ -115,8 +121,8 @@ def show_dashboard_page(df: pd.DataFrame):
         
         available_years = sorted([int(x) for x in df["Release Year"].unique() if str(x).isdigit()])
         
-        # Lấy danh sách nước sau khi đã làm sạch và chuẩn hóa (Không còn bị lặp)
-        top_countries = df["Country of Origin"].value_counts().head(10).index.tolist()
+        # Danh sách quốc gia gốc đã được làm sạch hoàn toàn (Không còn South Korea / Japan, v.v.)
+        top_countries = df["Country of Origin"].value_counts().index.tolist()
         
         selected_years = st.multiselect("Release Year(s)", options=available_years, default=available_years, key=f"years_{st.session_state.reset_count}")
         selected_countries = st.multiselect("Country of Origin", options=top_countries, default=top_countries, key=f"countries_{st.session_state.reset_count}")
@@ -165,7 +171,7 @@ def show_dashboard_page(df: pd.DataFrame):
     st.markdown("---")
     st.subheader("📈 Visual Analysis & Statistical Breakdowns")
 
-    # --- TÁCH BIỆT 4 CHART THÀNH CÁC TABS RIÊNG ---
+    # --- TÁCH BIỆT CÁC CHART THÀNH CÁC TABS RIÊNG ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "📅 Comics by Release Year", 
         "🌍 Country of Origin Distribution", 
@@ -205,38 +211,29 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("This visualization maps out the democratization and digitization of media production, illustrating how comic culture transformed into a dominant modern entertainment asset class.")
 
-        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION (HIỂN THỊ ĐỦ TOÀN BỘ THANH CHỈ) ---
+        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION (ĐỒNG BỘ 100% VỚI CATEGORIES, KHÔNG CÓ OTHERS) ---
         with tab2:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
-                country_all = filtered_df["Country of Origin"].value_counts().reset_index()
-                country_all.columns = ['Country', 'Count']
-                
-                # Giữ lại đúng 9 nước lớn nhất, phần còn lại gộp thành Others để tạo biểu đồ tròn 10 phần rõ ràng, sạch sẽ
-                if len(country_all) > 9:
-                    top_9 = country_all.head(9)
-                    others_count = country_all.iloc[9:]['Count'].sum()
-                    others_df = pd.DataFrame([['Others', others_count]], columns=['Country', 'Count'])
-                    country_counts = pd.concat([top_9, others_df], ignore_index=True)
-                else:
-                    country_counts = country_all
+                country_counts = filtered_df["Country of Origin"].value_counts().reset_index()
+                country_counts.columns = ['Country', 'Count']
                 
                 fig_pie = px.pie(
                     country_counts, values='Count', names='Country',
-                    title="Geographical Market Share Breakdown (Top Countries)",
+                    title="Geographical Market Share Breakdown",
                     color_discrete_sequence=px.colors.sequential.RdBu
                 )
-                # BẬT THANH CHỈ HƯỚNG RA NGOÀI CHO TOÀN BỘ CÁC NƯỚC HÀNG ĐẦU
+                # BẬT THANH CHỈ HƯỚNG RA NGOÀI CHO TẤT CẢ CÁC QUỐC GIA ĐANG ĐƯỢC CHỌN
                 fig_pie.update_traces(
                     textposition='outside', 
-                    textinfo='label+percent', # Hiển thị: Tên Nước + Số % ở tất cả các thanh chỉ
+                    textinfo='label+percent', # Bắt buộc hiển thị đồng thời cả Tên nước + Tỷ lệ % ở đầu đường chỉ dẫn
                     automargin=True
                 )
                 fig_pie.update_layout(
                     plot_bgcolor='rgba(0,0,0,0)', 
                     paper_bgcolor='rgba(0,0,0,0)', 
                     showlegend=False,
-                    margin=dict(t=80, b=80, l=140, r=140), # Nới rộng biên trái/phải ra 140px để thanh chữ dài không bị che khuất
+                    margin=dict(t=80, b=80, l=140, r=140), # Chừa khoảng trống rộng cho các đường chỉ bung lụa tự nhiên
                     height=550
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -279,7 +276,7 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("This chart serves as metric proof of global escape dynamics, demonstrating how high-stakes hero arcs and fantasy frameworks serve as the primary economic pillars of the comic world.")
 
-        # --- TAB 4: DATA FRAME (TOP COMICS TO HIGHLIGHT - KHÔNG CÓ MIÊU TẢ) ---
+        # --- TAB 4: DATA FRAME ---
         with tab4:
             st.markdown("### 📋 Filtered Dataset Records")
             top_comics = filtered_df.sort_values("Rating (out of 10)", ascending=False).head(20)
