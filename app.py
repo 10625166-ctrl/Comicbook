@@ -77,14 +77,14 @@ def read_comic_dataset(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     df = df.fillna("Unknown")
     
-    # Chuẩn hóa văn bản loại bỏ khoảng trắng thừa
     if "Country of Origin" in df.columns:
+        # Chuẩn hóa khoảng trắng
         df["Country of Origin"] = df["Country of Origin"].astype(str).str.strip()
         
-        # LOẠI BỎ CÁC GIÁ TRỊ RÁC CHỨA DẤU GẠCH CHÉO (Ví dụ: South Korea / Japan, South Korea / USA)
-        df = df[~df["Country of Origin"].str.contains(r'/', na=False)]
-        # Loại bỏ các giá trị Unknown hoặc rác không mong muốn khác khỏi danh mục chính nếu có
-        df = df[df["Country of Origin"] != "Unknown"]
+        # GIỚI HẠN CỨNG CHỈ ĐỂ LẠI ĐÚNG 8 QUỐC GIA THEO YÊU CẦU
+        # (Tự động loại bỏ hoàn toàn South Korea / Japan, South Korea / USA, Others và các nước Châu Âu nhỏ)
+        target_countries = ["Japan", "USA", "South Korea", "China", "UK", "Canada", "New Zealand", "Australia"]
+        df = df[df["Country of Origin"].isin(target_countries)]
 
     if "Genre" in df.columns:
         df["Genre"] = df["Genre"].astype(str).str.strip()
@@ -121,11 +121,11 @@ def show_dashboard_page(df: pd.DataFrame):
         
         available_years = sorted([int(x) for x in df["Release Year"].unique() if str(x).isdigit()])
         
-        # Danh sách quốc gia gốc đã được làm sạch hoàn toàn (Không còn South Korea / Japan, v.v.)
-        top_countries = df["Country of Origin"].value_counts().index.tolist()
+        # Danh sách quốc gia chỉ gồm đúng 8 nước mục tiêu, sắp xếp theo số lượng từ cao đến thấp
+        allowed_countries = df["Country of Origin"].value_counts().index.tolist()
         
         selected_years = st.multiselect("Release Year(s)", options=available_years, default=available_years, key=f"years_{st.session_state.reset_count}")
-        selected_countries = st.multiselect("Country of Origin", options=top_countries, default=top_countries, key=f"countries_{st.session_state.reset_count}")
+        selected_countries = st.multiselect("Country of Origin", options=allowed_countries, default=allowed_countries, key=f"countries_{st.session_state.reset_count}")
         
         selected_rating = st.slider(
             "Rating range",
@@ -211,7 +211,7 @@ def show_dashboard_page(df: pd.DataFrame):
                 st.markdown("### ✨ Why it is compelling?")
                 st.write("This visualization maps out the democratization and digitization of media production, illustrating how comic culture transformed into a dominant modern entertainment asset class.")
 
-        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION (ĐỒNG BỘ 100% VỚI CATEGORIES, KHÔNG CÓ OTHERS) ---
+        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION (ĐỒNG BỘ TUYỆT ĐỐI - KHÔNG OTHERS) ---
         with tab2:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
@@ -220,20 +220,20 @@ def show_dashboard_page(df: pd.DataFrame):
                 
                 fig_pie = px.pie(
                     country_counts, values='Count', names='Country',
-                    title="Geographical Market Share Breakdown",
+                    title="Geographical Market Share Breakdown (Clean Core 8 Countries)",
                     color_discrete_sequence=px.colors.sequential.RdBu
                 )
-                # BẬT THANH CHỈ HƯỚNG RA NGOÀI CHO TẤT CẢ CÁC QUỐC GIA ĐANG ĐƯỢC CHỌN
+                # ĐẢM BẢO HIỂN THỊ ĐƯỜNG CHỈ NGOÀI ĐỒNG ĐỀU CHO CẢ 8 NƯỚC
                 fig_pie.update_traces(
                     textposition='outside', 
-                    textinfo='label+percent', # Bắt buộc hiển thị đồng thời cả Tên nước + Tỷ lệ % ở đầu đường chỉ dẫn
+                    textinfo='label+percent', # Cấu trúc hiển thị: [Tên Nước] [Số %]
                     automargin=True
                 )
                 fig_pie.update_layout(
                     plot_bgcolor='rgba(0,0,0,0)', 
                     paper_bgcolor='rgba(0,0,0,0)', 
                     showlegend=False,
-                    margin=dict(t=80, b=80, l=140, r=140), # Chừa khoảng trống rộng cho các đường chỉ bung lụa tự nhiên
+                    margin=dict(t=80, b=80, l=140, r=140), # Tạo không gian rộng rãi để các thanh chỉ và chữ phân bổ đẹp, không đè nhau
                     height=550
                 )
                 st.plotly_chart(fig_pie, use_container_width=True)
