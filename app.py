@@ -147,7 +147,7 @@ def show_dashboard_page(df: pd.DataFrame):
     st.title("Comic Book Insights Dashboard")
     st.markdown("<div class='main-content'>", unsafe_allow_html=True)
 
-    # --- ĐỔI MỚI HỆ THỐNG TABS: ĐƯA HOME LÊN ĐẦU ---
+    # --- HỆ THỐNG TABS ---
     tab_home, tab_year, tab_country, tab_genre, tab_data = st.tabs([
         "🏠 Home",
         "📅 Comics by Release Year", 
@@ -164,7 +164,7 @@ def show_dashboard_page(df: pd.DataFrame):
     avg_pages = int(filtered_df["Page Count"].mean()) if not filtered_df.empty else 0
     unique_langs = filtered_df['Language'].nunique()
 
-    # --- TAB 1: HOME (KEY FINDINGS & MINH HỌA) ---
+    # --- TAB 1: HOME (SỬ DỤNG FILE ẢNH CỤC BỘ ĐÃ CÓ TRONG THƯ MỤC) ---
     with tab_home:
         col_text, col_img = st.columns([1.2, 1])
         with col_text:
@@ -177,16 +177,21 @@ def show_dashboard_page(df: pd.DataFrame):
                 f"Linguistically and creatively, production exhibits vast diversity across **{unique_langs} distinct languages**, driven heavily by prolific creators such as **{most_prolific_writer}**, who emerges as a highly prominent figurehead within this cultural dataset."
             )
         with col_img:
-            # Chèn hình ảnh minh họa giá sách truyện tranh sang trọng bên cạnh đoạn văn để cân bằng bố cục trực quan
-            st.image(
-                "https://images.unsplash.com/photo-1604307417808-af0bcb8a90f5?w=600", 
-                caption="Comic Book Archives & Global Trends", 
-                use_container_width=True
-            )
+            # Gọi trực tiếp tệp hình ảnh cục bộ mà bạn đã tải lên dự án
+            image_file = "OIP (7).webp"
+            if os.path.exists(image_file):
+                st.image(
+                    image_file, 
+                    caption="Comic Book Archives & Global Trends", 
+                    use_container_width=True
+                )
+            else:
+                # Phương án dự phòng nếu file chưa nằm đúng vị trí thư mục code
+                st.info("Vui lòng đảm bảo tệp tin 'OIP (7).webp' đã được đặt chung thư mục với file app.py này.")
 
     if not filtered_df.empty:
         
-        # --- TAB 2: COMICS BY RELEASE YEAR (CHỈNH TRỤC X NGHIÊNG 45°) ---
+        # --- TAB 2: COMICS BY RELEASE YEAR ---
         with tab_year:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
@@ -203,7 +208,6 @@ def show_dashboard_page(df: pd.DataFrame):
                     marker=dict(size=12 if is_single_year else 6, color='red' if is_single_year else '#1f77b4'),
                     line=dict(color='#1f77b4', width=2.5)
                 )
-                # CHỈNH GÓC NGHIÊNG -45 ĐỘ CHO NHÃN NĂM (DỄ ĐỌC, KHÔNG BỊ CHỒNG CHỮ)
                 fig_line.update_layout(
                     xaxis=dict(type='category', tickangle=-45), 
                     plot_bgcolor='rgba(0,0,0,0)', 
