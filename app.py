@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+from PIL import Image  # Thêm thư viện để mở ảnh an toàn
 
 st.set_page_config(
     page_title="Comic Book Insights",
@@ -80,7 +81,7 @@ def read_comic_dataset(path: Path) -> pd.DataFrame:
     if "Country of Origin" in df.columns:
         df["Country of Origin"] = df["Country of Origin"].astype(str).str.strip()
         
-        # Giới hạn cứng duy nhất 8 quốc gia cốt lõi sạch theo yêu cầu của bạn
+        # Giới hạn cứng duy nhất 8 quốc gia cốt lõi sạch
         target_countries = ["Japan", "USA", "South Korea", "China", "UK", "Canada", "New Zealand", "Australia"]
         df = df[df["Country of Origin"].isin(target_countries)]
 
@@ -164,7 +165,7 @@ def show_dashboard_page(df: pd.DataFrame):
     avg_pages = int(filtered_df["Page Count"].mean()) if not filtered_df.empty else 0
     unique_langs = filtered_df['Language'].nunique()
 
-    # --- TAB 1: HOME (SỬ DỤNG FILE ẢNH CỤC BỘ ĐÃ CÓ TRONG THƯ MỤC) ---
+    # --- TAB 1: HOME ---
     with tab_home:
         col_text, col_img = st.columns([1.2, 1])
         with col_text:
@@ -177,21 +178,28 @@ def show_dashboard_page(df: pd.DataFrame):
                 f"Linguistically and creatively, production exhibits vast diversity across **{unique_langs} distinct languages**, driven heavily by prolific creators such as **{most_prolific_writer}**, who emerges as a highly prominent figurehead within this cultural dataset."
             )
         with col_img:
-            # Gọi trực tiếp tệp hình ảnh cục bộ mà bạn đã tải lên dự án
-            image_file = "OIP (7).webp"
-            if os.path.exists(image_file):
-                st.image(
-                    image_file, 
-                    caption="Comic Book Archives & Global Trends", 
-                    use_container_width=True
-                )
+            # GIẢI PHÁP TRIỆT ĐỂ: Mở ảnh qua PIL Image để render trực tiếp lên Cloud ổn định
+            image_filename = "OIP (7).webp"
+            image_path = Path(__file__).resolve().parent / image_filename
+            
+            if image_path.exists():
+                try:
+                    img = Image.open(image_path)
+                    st.image(
+                        img, 
+                        caption="Comic Book Archives & Global Trends", 
+                        use_container_width=True
+                    )
+                except Exception as img_err:
+                    st.error(f"Không thể render ảnh: {img_err}")
             else:
-                # Phương án dự phòng nếu file chưa nằm đúng vị trí thư mục code
-                st.info("Vui lòng đảm bảo tệp tin 'OIP (7).webp' đã được đặt chung thư mục với file app.py này.")
+                st.info("Không tìm thấy file ảnh cục bộ, đang tải ảnh thay thế...")
+                # Backup link dự phòng nếu file cục bộ bị lỗi quyền truy cập
+                st.image("https://pub-c5e31b5cdafb419a86a69d5d340a955c.r2.dev/mock-library.jpg", use_container_width=True)
 
     if not filtered_df.empty:
         
-        # --- TAB 2: COMICS BY RELEASE YEAR ---
+        # --- TAB 2: COMICS BY RELEASE YEAR (Xoay nghiêng 45 độ) ---
         with tab_year:
             col_chart, col_desc = st.columns([1.3, 1])
             with col_chart:
