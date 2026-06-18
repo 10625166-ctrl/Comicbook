@@ -24,7 +24,17 @@ DATA_PATH_CANDIDATES = [
 ]
 DATA_PATH = next((path for path in DATA_PATH_CANDIDATES if path.exists()), None)
 
-# CSS giao diện nền và Tab vuông đen chữ trắng
+# CSS giao diện nền
+intro_bg = """
+<style>
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg, rgba(25, 25, 112, 0.7), rgba(220, 20, 60, 0.7)), 
+                    url('https://images.unsplash.com/photo-1604307417808-af0bcb8a90f5?w=1200') center/cover;
+        background-attachment: fixed;
+    }
+</style>
+"""
+
 main_bg = """
 <style>
     [data-testid="stAppViewContainer"] {
@@ -39,33 +49,19 @@ main_bg = """
         border-radius: 10px;
     }
     div.stTabs [data-baseweb="tab"] {
-        background-color: #111111 !important;
+        background-color: #1e1e1e;
         color: #ffffff !important;
-        border-radius: 0px !important;
-        padding: 8px 16px !important;
-        margin-right: 6px;
+        border-radius: 5px 5px 0px 0px;
+        padding: 10px 20px;
+        margin-right: 4px;
         font-weight: bold;
-        border: none !important;
-        text-transform: uppercase;
-        font-size: 13px;
     }
     div.stTabs [data-baseweb="tab"]:hover {
-        background-color: #ff4b4b !important;
+        background-color: #ff4b4b;
     }
     div.stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #111111 !important;
-        color: #ff4b4b !important;
-        border-bottom: 3px solid #ff4b4b !important;
-    }
-</style>
-"""
-
-intro_bg = """
-<style>
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(135deg, rgba(25, 25, 112, 0.7), rgba(220, 20, 60, 0.7)), 
-                    url('https://images.unsplash.com/photo-1604307417808-af0bcb8a90f5?w=1200') center/cover;
-        background-attachment: fixed;
+        background-color: #ff4b4b;
+        border-bottom: 3px solid #ffffff;
     }
 </style>
 """
@@ -76,13 +72,6 @@ def read_comic_dataset(path: Path) -> pd.DataFrame:
         raise FileNotFoundError(f"Không tìm thấy file dữ liệu {DATASET_FILENAME}")
     df = pd.read_csv(path)
     df = df.fillna("Unknown")
-    
-    # SỬA LỖI TRÙNG LẶP: Loại bỏ khoảng trắng thừa ở đầu/cuối của text để gom nhóm chính xác
-    if "Country of Origin" in df.columns:
-        df["Country of Origin"] = df["Country of Origin"].astype(str).str.strip()
-    if "Genre" in df.columns:
-        df["Genre"] = df["Genre"].astype(str).str.strip()
-        
     return df
 
 def show_intro_page():
@@ -113,11 +102,11 @@ def show_dashboard_page(df: pd.DataFrame):
     with st.sidebar:
         st.markdown("<div style='margin:6px 0 12px 0;'><h2 style='font-size:22px; font-weight:800; text-transform:uppercase; margin:0;'>📂 CATEGORIES</h2></div>", unsafe_allow_html=True)
         
+        # Sắp xếp danh sách năm và quốc gia tăng dần
         available_years = sorted([int(x) for x in df["Release Year"].unique() if str(x).isdigit()])
-        
-        # Lấy danh sách nước sau khi đã làm sạch và chuẩn hóa (Không còn bị lặp)
         top_countries = df["Country of Origin"].value_counts().head(10).index.tolist()
         
+        # Sử dụng multiselect hoạt động như một nhóm check-box chọn nhiều mục cùng lúc
         selected_years = st.multiselect("Release Year(s)", options=available_years, default=available_years, key=f"years_{st.session_state.reset_count}")
         selected_countries = st.multiselect("Country of Origin", options=top_countries, default=top_countries, key=f"countries_{st.session_state.reset_count}")
         
@@ -165,7 +154,7 @@ def show_dashboard_page(df: pd.DataFrame):
     st.markdown("---")
     st.subheader("📈 Visual Analysis & Statistical Breakdowns")
 
-    # --- TÁCH BIỆT 4 CHART THÀNH CÁC TABS RIÊNG ---
+    # --- THIẾT KẾ CÁC TABS TÁCH BIỆT (HÌNH SỐ 2) ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "📅 Comics by Release Year", 
         "🌍 Country of Origin Distribution", 
@@ -183,8 +172,114 @@ def show_dashboard_page(df: pd.DataFrame):
                 year_counts.columns = ['Release Year', 'Comics Count']
                 year_counts['Release Year'] = year_counts['Release Year'].astype(str)
                 
+                # Biến đổi màu sắc linh hoạt, ghim rõ chấm nếu chỉ có số lượng ít năm được khoanh vùng
                 is_single_year = len(year_counts) <= 3
                 fig_line = px.line(
-                    year_counts, x='Release Year', y='Comics Count',
+                    year_df := year_counts, x='Release Year', y='Comics Count',
                     markers=True, title="Chronological Publication Volumes"
                 )
+                fig_line.update_traces(
+                    marker=dict(size=12 if is_single_year else 6, color='red' if is_single_year else '#1f77b4'),
+                    line=dict(color='#1f77b4', width=2.5)
+                )
+                fig_line.update_layout(xaxis=dict(type='category'), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_line, use_container_width=True)
+            
+            with col_desc:
+                st.markdown("### 📝 IELTS Task 1 Academic Analysis")
+                st.write(
+                    "The line graph delineates the chronological trajectory of comic book publications over time. "
+                    "Overall, the data illustrates a striking and continuous upward trend, accelerating sharply as it approaches recent decades. "
+                    "Initially, publication volumes maintained a stable, conservative baseline. However, a significant inflection point is observed post-2010, where production underwent an exponential surge, peaking dramatically before experiencing a minor consolidation."
+                )
+                st.markdown("### ✨ Why it is compelling?")
+                st.write(
+                    "This visualization is deeply captivating because it mirrors the digital revolution and global mainstreaming of comic culture. "
+                    "The steep climb post-2010 directly correlates with the multi-billion dollar cinematic expansion of comic franchises and indie self-publishing platforms, visualizing how a niche subculture transformed into a dominant modern entertainment powerhouse."
+                )
+
+        # --- TAB 2: COUNTRY OF ORIGIN DISTRIBUTION ---
+        with tab2:
+            col_chart, col_desc = st.columns([1.3, 1])
+            with col_chart:
+                country_counts = filtered_df["Country of Origin"].value_counts().head(8).reset_index()
+                country_counts.columns = ['Country', 'Count']
+                
+                # SỬ DỤNG THANH CHỈ DẪN HIỂN THỊ CẢ TÊN LẪN PHẦN TRĂM (HÌNH SỐ 1)
+                fig_pie = px.pie(
+                    country_counts, values='Count', names='Country',
+                    title="Geographical Market Share Breakdown",
+                    color_discrete_sequence=px.colors.sequential.RdBu
+                )
+                fig_pie.update_traces(
+                    textposition='outside', 
+                    textinfo='label+percent', # Hiển thị song song Tên nhãn + Phần trăm ở đầu thanh chỉ
+                    insidetextorientation='radial'
+                )
+                fig_pie.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
+                st.plotly_chart(fig_pie, use_container_width=True)
+            
+            with col_desc:
+                st.markdown("### 📝 IELTS Task 1 Academic Analysis")
+                st.write(
+                    "The pie chart presents the proportional distribution of comic book production relative to their countries of origin. "
+                    "It is immediately apparent that the market exhibits a highly polarized structure, heavily dominated by a select few traditional publishing giants. "
+                    "Japan commands the largest segment by a substantial margin, closely followed by the United States. Together, these two territories capture the vast majority of global output, leaving European and other regional contributors to occupy minor, fragmented shares of the remaining market."
+                )
+                st.markdown("### ✨ Why it is compelling?")
+                st.write(
+                    "The breakdown vividly captures the soft-power battlefront of international media. "
+                    "By highlighting the towering dominance of Japanese Manga and American Superheroes over regional alternatives, it exposes the cultural duopoly that shapes the imagination, art styles, and reading habits of global audiences."
+                )
+
+        # --- TAB 3: TOP GENRES ---
+        with tab3:
+            col_chart, col_desc = st.columns([1.3, 1])
+            with col_chart:
+                genre_counts = filtered_df["Genre"].value_counts().head(10).reset_index()
+                genre_counts.columns = ['Genre', 'Count']
+                
+                fig_bar = px.bar(
+                    genre_counts, x='Count', y='Genre', orientation='h',
+                    title="Top 10 Most Prevalent Genres",
+                    color='Count', color_continuous_scale='Viridis'
+                )
+                fig_bar.update_layout(yaxis=dict(categoryorder='total ascending'), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_bar, use_container_width=True)
+            
+            with col_desc:
+                st.markdown("### 📝 IELTS Task 1 Academic Analysis")
+                st.write(
+                    "The horizontal bar chart compares the density of various literary genres within the comic archive. "
+                    "The data reveals a highly uneven distribution, where mainstream commercial genres far outstrip specialized themes. "
+                    "Action, Superhero, and Sci-Fi narratives secure the highest frequencies, establishing a prominent lead. Conversely, niche segments such as historical, educational, or biographical variants register minimal representation at the lower spectrum of the scale."
+                )
+                st.markdown("### ✨ Why it is compelling?")
+                st.write(
+                    "This chart is fascinating because it charts human escapism. It mathematically proves that while comic books are a flexible artistic medium capable of telling any story, the global market remains strongly driven by high-stakes adrenaline, fantasy, and superhero tropes, highlighting what commercial formulas resonate most with readers."
+                )
+
+        # --- TAB 4: DATA FRAME (TOP COMICS TO HIGHLIGHT - KHÔNG CÓ MIÊU TẢ) ---
+        with tab4:
+            st.markdown("### 📋 Filtered Dataset Records")
+            top_comics = filtered_df.sort_values("Rating (out of 10)", ascending=False).head(20)
+            st.dataframe(
+                top_comics[["Title", "Writer", "Genre", "Release Year", "Rating (out of 10)", "Country of Origin"]].reset_index(drop=True),
+                use_container_width=True
+            )
+
+    else:
+        st.warning("Không có dữ liệu phù hợp với bộ lọc Hiện tại. Vui lòng nhấn nút 'Reset Filters' ở sidebar.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# Điều hướng trang chính
+try:
+    df = read_comic_dataset(DATA_PATH)
+    if st.session_state.page == "intro":
+        show_intro_page()
+    else:
+        show_dashboard_page(df)
+except Exception as error:
+    st.error(f"Lỗi hệ thống: {error}")
+    st.stop()
